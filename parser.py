@@ -1,5 +1,8 @@
  # -*- coding: utf-8 -*-
 import re
+import os
+from urllib2 import urlopen
+from hashlib import md5
 from collections import namedtuple
 
 
@@ -16,6 +19,9 @@ user_pattern = re.compile(r'(?P<name>[\w\d\s.]+)\s<(?P<email>[\w\d@.]+)>')
 Changeset = namedtuple('Changeset', patterns.keys())
 User = namedtuple('User', ['name', 'email', 'pic'])
 
+base_path = '/home/lovesuper/Pictures/{0}'
+url = 'http://www.gravatar.com/avatar/{0}'
+
 
 def create_chunks(string):
     raw_chunks = string.split("\n\n")
@@ -24,7 +30,7 @@ def create_chunks(string):
 
 
 def convert_chunks(raw_chunks):
-    for chunk in raw_chunks:
+    for chunk in reversed(raw_chunks):
         keys = {}
         for key, pattern in patterns.iteritems():
             match = pattern.findall(chunk)
@@ -35,10 +41,14 @@ def convert_chunks(raw_chunks):
                 match = user_pattern.match(match)
                 email = match.group('email')
                 name = match.group('name')
-                # FIXIT: Check for avatars
-                pic = open('/home/lovesuper/Documents/pics/1.png', 'rb')
-                match = User(name, email, pic)
+                md5hash = md5(email).hexdigest()
+                pic_path = base_path.format(md5hash)
+                if not os.path.isfile(pic_path):
+                    web = urlopen(url.format(md5hash))
+                    with open(pic_path, 'wb') as f:
+                        f.write(web.read())
 
+                match = User(name, email, pic_path)
             keys.update({key: match})
 
         yield Changeset(**keys)
